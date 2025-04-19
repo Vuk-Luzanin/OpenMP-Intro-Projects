@@ -17,7 +17,7 @@ All homework tasks are in Serbian.
 python3 run.py <test_name>
 ```
 
-Where <test_name> is optional — if omitted, all tests will be executed.
+Where <test_name> is optional (prime/feynman/moldyn) — if omitted, all tests will be executed.
 
 - Compiled binaries, logs, and generated SVG result charts will be placed in the gen/ directory.
 
