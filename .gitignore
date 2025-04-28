@@ -15,3 +15,5 @@ build/
 # Ignoriši VSCode workspace fajl (ako koristiš VSCode)
 .vscode/
 
+.DS_Store
+
