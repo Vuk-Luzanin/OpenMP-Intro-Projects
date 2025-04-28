@@ -20,3 +20,7 @@ python3 run.py <test_name>
 Where <test_name> is optional (prime/feynman/moldyn) — if omitted, all tests will be executed.
 
 - Compiled binaries, logs, and generated SVG result charts will be placed in the gen/ directory.
+
+## Report
+
+Attached is the Word document [Report.docx](./Report.docx), in which the method of parallelization and discussion are detailed in Serbian, along with examples of result graphs.
