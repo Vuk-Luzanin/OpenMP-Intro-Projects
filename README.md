@@ -23,4 +23,4 @@ Where <test_name> is optional (prime/feynman/moldyn) — if omitted, all tests w
 
 ## Report
 
-Attached is the Word document [Report.docx](./Report.docx), in which the method of parallelization and discussion are detailed in Serbian, along with examples of result graphs.
+Attached is the PDF document [Report.pdf](./Reports/Report.pdf) (in Reports/ directory), in which the method of parallelization and discussion are detailed in Serbian, along with examples of result graphs.
