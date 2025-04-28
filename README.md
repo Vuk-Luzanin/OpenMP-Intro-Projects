@@ -1,4 +1,4 @@
-# MUPS
+# OpenMP
 Homework for our [Multiprocessor Systems class](http://mups.etf.bg.ac.rs/) at [School of Electrical Engineering, University of Belgrade](https://www.etf.bg.ac.rs/) using [OpenMP](https://en.wikipedia.org/wiki/OpenMP). The task involved programs that needed to be sped up using the mentioned technology. 
 
 ## Homework
