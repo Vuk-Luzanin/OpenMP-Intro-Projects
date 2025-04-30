@@ -32,9 +32,10 @@ void timestamp(void)
   printf("%s\n", time_buffer);
 
   return;
-#undef TIME_SIZE
+#undef TIME_SIZE    //  allows the size of the array to be determined within the function, while avoiding the global use of the macro afterward
 }
 
+// returns how many prime numbers are between 2 and n
 int prime_number_1(int n)
 {
   int total = 0;
@@ -62,6 +63,7 @@ int prime_number_1(int n)
   return total;
 }
 
+// returns how many prime numbers are between 2 and n
 int prime_number_2(int n)
 {
   int total = 0;
@@ -70,6 +72,7 @@ int prime_number_2(int n)
                                    reduction(+ : total)
 {
 
+// schedule can be set to 2, because check for even numbers is much faster
 #pragma omp for schedule(static, 1)
   for (int i = 2; i <= n; i++)
   {
