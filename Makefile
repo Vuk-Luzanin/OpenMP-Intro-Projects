@@ -19,7 +19,7 @@ endif
 # $(@) stands for target -> written before : -> $(BUILD_DIR)/prime
 
 # all is defined as main target when running make
-all: $(BUILD_DIR)/prime $(BUILD_DIR)/feynman $(BUILD_DIR)/MolDyn \
+all: $(BUILD_DIR)/prime $(BUILD_DIR)/feynman $(BUILD_DIR)/moldyn \
 	$(BUILD_DIR)/feynman_pthreads
 
 # OpenMP
@@ -29,7 +29,7 @@ $(BUILD_DIR)/prime: $(SOURCE_DIR)/prime.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)	# 
 $(BUILD_DIR)/feynman: $(SOURCE_DIR)/feynman.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
-$(BUILD_DIR)/MolDyn: $(SOURCE_DIR)/MolDyn.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+$(BUILD_DIR)/moldyn: $(SOURCE_DIR)/moldyn.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
 #Pthreads
