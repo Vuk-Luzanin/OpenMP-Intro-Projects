@@ -6,26 +6,7 @@
 #include "util.h"
 
 #define NUM_LOCKS 256
-
-
-void timestamp(void)
-{
-#define TIME_SIZE 40
-
-  static char time_buffer[TIME_SIZE];
-  const struct tm *tm;
-  time_t now;
-
-  now = time(NULL);
-  tm = localtime(&now);
-
-  strftime(time_buffer, TIME_SIZE, "%d %B %Y %I:%M:%S %p", tm);
-
-  printf("%s\n", time_buffer);
-
-  return;
-#undef TIME_SIZE
-}
+#define DIMENSIONS 3
 
 // potencijalna energiju u nekom centralno simetricnom polju unutar elipsoida
 // energija veca sto je tacka dalje od centra i sto su dimenzije elipsoida manje
@@ -547,7 +528,7 @@ int main(int argc, char **argv)
   const int nj = 11;
   const int nk = 6;
 
-  const double stepsz = sqrt(3 * h);      // velicina koraka kojim se cestica pomera u svakom koraku
+  const double stepsz = sqrt(DIMENSIONS * h);      // velicina koraka kojim se cestica pomera u svakom koraku
 
   if (argc < 3)
   {
@@ -591,3 +572,94 @@ int main(int argc, char **argv)
 
  - w - trenutna tezina cestice u simulaciji
  */
+
+ /******************************************************************************/
+/*
+  Purpose:
+
+    MAIN is the main program for FEYNMAN_KAC_2D.
+
+  Discussion:
+
+    This program is derived from section 2.5, exercise 2.2 of Petersen and Arbenz.
+
+    The problem is to determine the solution U(X,Y) of the following 
+    partial differential equation:
+
+      (1/2) Laplacian U - V(X,Y) * U = 0,
+
+    inside the elliptic domain D:
+ 
+      D = { (X,Y) | (X/A)^2+(Y/B)^2 <= 1 }
+   
+    with the boundary condition U(boundary(D)) = 1.
+
+    The V(X,Y) is the potential function:
+
+      V = 2 * ( (X/A^2)^2 + (Y/B^2)^2 ) + 1/A^2 + 1/B^2.
+
+    The analytic solution of this problem is already known:
+
+      U(X,Y) = exp ( (X/A)^2 + (Y/B)^2 - 1 ).
+
+    Our method is via the Feynman-Kac Formula.
+
+    The idea is to start from any (x,y) in D, and
+    compute (x+Wx(t),y+Wy(t)) where 2D Brownian motion
+    (Wx,Wy) is updated each step by sqrt(h)*(z1,z2),
+    each z1,z2 are independent approximately Gaussian 
+    random variables with zero mean and variance 1. 
+
+    Each (x1(t),x2(t)) is advanced until (x1,x2) exits 
+    the domain D.  
+
+    Upon its first exit from D, the sample path (x1,x2) is stopped and a 
+    new sample path at (x,y) is started until N such paths are completed.
+ 
+    The Feynman-Kac formula gives the solution here as
+
+      U(X,Y) = (1/N) sum(1 <= I <= N) Y(tau_i),
+
+    where
+
+      Y(tau) = exp( -int(s=0..tau) v(x1(s),x2(s)) ds),
+
+    and tau = first exit time for path (x1,x2). 
+
+    The integration procedure is a second order weak accurate method:
+
+      X(t+h)  = [ x1(t) + sqrt ( h ) * z1 ]
+                [ x2(t) + sqrt ( h ) * z2 ]
+
+    Here Z1, Z2 are approximately normal univariate Gaussians. 
+
+    An Euler predictor approximates Y at the end of the step
+
+      Y_e     = (1 - h*v(X(t)) * Y(t), 
+
+    A trapezoidal rule completes the step:
+
+      Y(t+h)  = Y(t) - (h/2)*[v(X(t+h))*Y_e + v(X(t))*Y(t)].
+
+  Licensing:
+
+    This code is distributed under the MIT license. 
+
+  Modified:
+
+    31 May 2012
+
+  Author:
+
+    Original C 3D version by Wesley Petersen.
+    C 2D version by John Burkardt.
+
+  Reference:
+
+    Peter Arbenz, Wesley Petersen,
+    Introduction to Parallel Computing:
+    A Practical Guide with Examples in C,
+    Oxford, 2004,
+    ISBN: 0-19-851577-4,
+    LC: QA76.59.P47.
+*/
