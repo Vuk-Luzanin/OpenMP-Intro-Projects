@@ -99,7 +99,7 @@ void* trial_worker(void *varg)
     return NULL;
 }
 
-double feynman_pthreads(double a, double b, double c, double h, double stepsz, int ni, int nj, int nk, int N)
+double feynman_pthreads(double a, double b, double c, int ni, int nj, int nk, int N)
 {
     int n_inside = 0;
 
@@ -176,7 +176,7 @@ int main(int argc, char **argv)
 
     printf("TEST: N=%d, num_threads=%d\n", N, num_threads);
     double wtime = omp_get_wtime();
-    double err = feynman_pthreads(a, b, c, h, stepsz, ni, nj, nk, N);
+    double err = feynman_pthreads(a, b, c, ni, nj, nk, N);
     wtime = omp_get_wtime() - wtime;
     printf("%d    %lf    %lf\n", N, err, wtime);
     printf("TEST END\n");
