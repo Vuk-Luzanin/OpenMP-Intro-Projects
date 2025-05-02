@@ -19,8 +19,10 @@ endif
 # $(@) stands for target -> written before : -> $(BUILD_DIR)/prime
 
 # all is defined as main target when running make
-all: $(BUILD_DIR)/prime $(BUILD_DIR)/feynman $(BUILD_DIR)/MolDyn
+all: $(BUILD_DIR)/prime $(BUILD_DIR)/feynman $(BUILD_DIR)/MolDyn \
+	$(BUILD_DIR)/feynman_pthreads
 
+# OpenMP
 $(BUILD_DIR)/prime: $(SOURCE_DIR)/prime.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)	# when building prime: compile these files | what needs to be made before running command, then command is written
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
 
@@ -29,6 +31,10 @@ $(BUILD_DIR)/feynman: $(SOURCE_DIR)/feynman.c $(SOURCE_DIR)/util.c | $(BUILD_DIR
 
 $(BUILD_DIR)/MolDyn: $(SOURCE_DIR)/MolDyn.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
 	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS)
+
+#Pthreads
+$(BUILD_DIR)/feynman_pthreads: $(SOURCE_DIR)/feynman_pthreads.c $(SOURCE_DIR)/util.c | $(BUILD_DIR)
+	$(OMPCC) $(CC_FLAGS) $(^) -o $(@) $(LIBS) -lpthread
 
 $(BUILD_DIR):		# when running this, execute this command: this command will run if $(BUILD_DIR) does not exist, -p adds parent directories in the path of the new one
 	mkdir -p $(BUILD_DIR)

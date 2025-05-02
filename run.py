@@ -56,6 +56,14 @@ TESTS = {
         'y': lambda result, seq_result: [max(float(seq_result[-1][1]), 0.0000001) / max(float(result[-1][1]), 0.0000001)],
         'same': lambda result1, result2: [float(row[1]) for row in result1[:-1]] == [float(row[1]) for row in result2[:-1]],
         'threads': [1, 2, 4, 8, 16]
+    },
+    'feynman_pthreads': {
+        'type': 'pthreads',
+        'args': [[1000], [5000], [10000], [20000]],
+        'x': lambda result: [int(result[0][0])],
+        'y': lambda result, seq_result: [max(float(seq_result[0][2]), 0.0000001) / max(float(result[0][2]), 0.0000001)],
+        'same': lambda result1, result2: (abs(float(result1[0][1]) - float(result2[0][1])) <= ACCURACY),
+        'threads': [1, 2, 4, 8, 16]
     }
 }
 
@@ -77,6 +85,13 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
         process_args = [f'{BUILD_DIR}/{exe_name}', str(func_num)]
         # Build the log file name based on the command arguments
         log_filename = ' '.join(process_args + stringified_args + [str(num_threads)])
+    elif test_type == 'pthreads':       # IMPORTANT: PTHREADS reads number of threads from OMP_NUM_THREADS variable
+        # Set the number of OpenMP threads in the environment for this process
+        process_env['OMP_NUM_THREADS'] = str(num_threads)
+        # Prepare the base arguments for executing the program (path to executable + function number)
+        process_args = [f'{BUILD_DIR}/{exe_name}']
+        # Build the log file name based on the command arguments
+        log_filename = ' '.join(process_args + stringified_args + [str(num_threads)])
 
     # If the test type is unknown, raise an exception
     else:
@@ -84,7 +99,7 @@ def run_test(func_num: int, test_type: str, exe_name: str, args: List[int], num_
 
     # Append the stringified arguments to the command to be executed
     process_args += stringified_args
-
+    
     # Launch the process with the specified environment and capture its stdout
     process = Popen(process_args, env=process_env, stdout=PIPE) # env=process_env -> Environment variables that will apply only to this specific process.
 
