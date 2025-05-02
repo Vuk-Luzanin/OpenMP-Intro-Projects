@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <pthread.h>
-#include <omp.h>
+#include <omp.h> // used only for time measurement and passing number of threads -> to uniform the run.py script
 #include "util.h"
 
 #define NI 16
@@ -25,7 +25,8 @@ static double h = 0.001;
 
 static double stepsz;
 
-typedef struct {
+typedef struct 
+{
     int i, j, k;
     double x0, y0, z0;
     int start_trial;
@@ -66,19 +67,22 @@ void* trial_worker(void *varg)
             double ut = r8_uniform_01(&seed);
             double us, dx = 0, dy = 0, dz = 0;
 
-            if (ut < 1.0 / 3.0) {
+            if (ut < 1.0 / 3.0) 
+            {
                 us = r8_uniform_01(&seed) - 0.5;
                 dx = (us < 0.0) ? -stepsz : stepsz;
             }
 
             ut = r8_uniform_01(&seed);
-            if (ut < 1.0 / 3.0) {
+            if (ut < 1.0 / 3.0) 
+            {
                 us = r8_uniform_01(&seed) - 0.5;
                 dy = (us < 0.0) ? -stepsz : stepsz;
             }
 
             ut = r8_uniform_01(&seed);
-            if (ut < 1.0 / 3.0) {
+            if (ut < 1.0 / 3.0) 
+            {
                 us = r8_uniform_01(&seed) - 0.5;
                 dz = (us < 0.0) ? -stepsz : stepsz;
             }
@@ -103,9 +107,12 @@ double feynman_pthreads(double a, double b, double c, int ni, int nj, int nk, in
 {
     int n_inside = 0;
 
-    for (int i = 1; i <= ni; i++) {
-        for (int j = 1; j <= nj; j++) {
-            for (int k = 1; k <= nk; k++) {
+    for (int i = 1; i <= ni; i++) 
+    {
+        for (int j = 1; j <= nj; j++) 
+        {
+            for (int k = 1; k <= nk; k++) 
+            {
                 double x = ((double)(ni - i) * (-a) + (double)(i - 1) * a) / (double)(ni - 1);
                 double y = ((double)(nj - j) * (-b) + (double)(j - 1) * b) / (double)(nj - 1);
                 double z = ((double)(nk - k) * (-c) + (double)(k - 1) * c) / (double)(nk - 1);
@@ -125,7 +132,8 @@ double feynman_pthreads(double a, double b, double c, int ni, int nj, int nk, in
                 int remainder = N % num_threads;
                 int current = 0;
 
-                for (int t = 0; t < num_threads; t++) {
+                for (int t = 0; t < num_threads; t++) 
+                {
                     int start = current;
                     int count = trials_per_thread + (t < remainder ? 1 : 0);
                     int end = start + count;
@@ -143,7 +151,8 @@ double feynman_pthreads(double a, double b, double c, int ni, int nj, int nk, in
                     pthread_create(&threads[t], NULL, trial_worker, &args[t]);
                 }
 
-                for (int t = 0; t < num_threads; t++) {
+                for (int t = 0; t < num_threads; t++) 
+                {
                     pthread_join(threads[t], NULL);
                 }
             }
@@ -162,14 +171,14 @@ double feynman_pthreads(double a, double b, double c, int ni, int nj, int nk, in
 
 int main(int argc, char **argv)
 {
-    if (argc < 3)
+    if (argc < 2)
     {
         printf("Invalid number of arguments passed.\n");
         return 1;
     }
 
     const int N = atoi(argv[1]);
-    num_threads = atoi(argv[2]);
+    num_threads = get_num_threads();
 
     stepsz = sqrt(3 * h);
     pthread_mutex_init(&wt_mutex, NULL);
