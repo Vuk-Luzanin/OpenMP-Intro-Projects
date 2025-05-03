@@ -67,8 +67,8 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
       // tacka nije unutar 1-D elipsoida
 // deo oznacen za DEBUG se kompajlira ako se prilikom prevodjenja navede opcija -DDEBUG
 #ifdef DEBUG
-      printf("  %7.4f  %7.4f  %7.4f  %10.4e  %10.4e  %10.4e  %8d\n",
-              x, y, z, 1.0, 1.0, 0.0, 0);
+      printf("  %7.4f  %7.4f  %10.4e  %10.4e  %10.4e  %8d\n",
+              x, y, 1.0, 1.0, 0.0, 0);
 #endif
       w_exact = 1.0;
       wt = 1.0;
@@ -140,7 +140,6 @@ double feynman_1(const double a, const double h, const double stepsz, const int 
             x, y, z, wt, w_exact, fabs(w_exact - wt), steps / N);
 #endif
   
-
   }
 } // parallel
   // root-mean-square (RMS) error

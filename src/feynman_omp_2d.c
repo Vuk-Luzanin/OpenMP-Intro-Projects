@@ -2,173 +2,119 @@
 # include <stdio.h>
 # include <math.h>
 # include <time.h>
+#include <omp.h>
+#include "util.h"
 
 #define DIMENSIONS 2
 
-int main ( int argc, char **argv );
-int i4_ceiling ( double x );
-double potential ( double a, double b, double x, double y );
-double r8_uniform_01 ( int *seed );
-void timestamp ( );
-
-/******************************************************************************/
-
-int main ( int arc, char **argv )
-
-
+double potential ( double a, double b, double x, double y )
 {
-  double a = 2.0;
-  double b = 1.0;
-  double chk;
-  int dim = 2;
-  double dx;
-  double dy;
-  double err;
-  double h = 0.001;
-  int i;
-  int j;
+  double value;
+  value = 2.0 * ( pow ( x / a / a, 2 ) + pow ( y / b / b, 2 ) ) + 1.0 / a / a + 1.0 / b / b;
+
+  return value;
+}
+
+// generator pseudoslučajnih brojeva po uniformnoj raspodeli - svaka nit ima svoj seed, jer kada bi bio shared, uniformnost ne bi bila garantovana
+// real 8-byte number in [0,1)
+double r8_uniform_01(int *seed)
+{
   int k;
-  int N = 1000;
-  int n_inside;
-  int ni;
-  int nj;
-  double rth;
+  double r;
+
+  k = *seed / 127773;
+  *seed = 16807 * (*seed - k * 127773) - k * 2836;
+
+  if (*seed < 0)
+  {
+    *seed = *seed + 2147483647;
+  }
+  r = (double)(*seed) * 4.656612875E-10;
+
+  return r;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+double feynman_1(const double a, const double b, const double h, const double stepsz, const int ni, const int nj, const int N) 
+{
   int seed = 123456789;
-  int steps;
-  int steps_ave;
-  double us;
-  double ut;
-  double vh;
-  double vs;
-  double x;
-  double x1;
-  double x2;
-  double y;
-  double w;
-  double w_exact;
-  double we;
-  double wt;
+  double err = 0.0;
+  int n_inside = 0;   // broj tacaka unutar elipsoida (unutar mreze)
 
-  printf ( "\n" );
-  timestamp ( );
+#pragma omp parallel default(none) shared(a, b, h, stepsz, ni, nj, N) \
+                                   firstprivate(seed) \
+                                   reduction(+ : err) \
+                                   reduction(+ : n_inside)
+{
+  // seed is private variable, so numbers can generate uniformly
+  seed += omp_get_thread_num();
 
-  printf ( "\n" );
-  printf ( "FEYNMAN_KAC_2D:\n" );
-  printf ( "  C version.\n" );
-  printf ( "\n" );
-  printf ( "  Program parameters:\n" );
-  printf ( "\n" );
-  printf ( "  The calculation takes place inside a 2D ellipse.\n" );
-  printf ( "  A rectangular grid of points will be defined.\n" );
-  printf ( "  The solution will be estimated for those grid points\n" );
-  printf ( "  that lie inside the ellipse.\n" );
-  printf ( "\n" );
-  printf ( "  Each solution will be estimated by computing %d trajectories\n", N );
-  printf ( "  from the point to the boundary.\n" );
-  printf ( "\n" );
-  printf ( "    (X/A)^2 + (Y/B)^2 = 1\n" );
-  printf ( "\n" );
-  printf ( "  The ellipse parameters A, B are set to:\n" );
-  printf ( "\n" );
-  printf ( "    A = %f\n", a );
-  printf ( "    B = %f\n", b );
-  printf ( "  Stepsize H = %6.4f\n", h );
-/*
-  RTH is the scaled stepsize.
-*/
-  rth = sqrt ( ( double ) dim * h );
-/*
-  Choose the spacing.
-*/
-  if ( a < b )
+#pragma omp for schedule(static, 1)
+  for (int i = 1; i <= ni; i++)
   {
-    ni = 6;
-    nj = 1 + i4_ceiling ( b / a ) * ( ni - 1 );
-  }
-  else
-  {
-    nj = 6;
-    ni = 1 + i4_ceiling ( a / b ) * ( nj - 1 );
-  }
-
-  printf ( "\n" );
-  printf ( "  X coordinate marked by %d points\n", ni );
-  printf ( "  Y coordinate marked by %d points\n", nj );
-/*
-  Loop over the grid points.
-*/
-  err = 0.0;
-  n_inside = 0;
-
-  printf ( "\n" );
-  printf ( "     X        Y        W Approx     W Exact    Error    Ave Steps\n" );
-  printf ( "\n" );
-
-  for ( j = 1; j <= nj; j++ )
-  {
-    x = ( ( double ) ( nj - j     ) * ( - a )
-        + ( double ) (      j - 1 ) *     a )
-        / ( double ) ( nj     - 1 );
-
-    for ( i = 1; i <= ni; i++ )
+    for (int j = 1; j <= nj; j++ )
     {
-      y = ( ( double ) ( ni - i     ) * ( - b )
-          + ( double ) (      i - 1 ) *     b ) 
-          / ( double ) ( ni     - 1 );
-
-      chk = pow ( x / a, 2 ) + pow ( y / b, 2 );
+      // interpolacija koordinata kako bi se dobilo kada je i = 1 -> x = -a, kada je i = ni -> x = a
+      double x = ((double)(ni - i) * (-a) + (double)(i - 1) * a) / (double)(ni - 1);
+      double y = ((double)(nj - j) * (-b) + (double)(j - 1) * b) / (double)(nj - 1);
+    
+      double chk = pow(x / a, 2) + pow(y / b, 2);
+      double w_exact = 0;
+      double wt = 0;
 
       if ( 1.0 < chk )
       {
+        // tacka nije unutar 1-D elipsoida
+        // deo oznacen za DEBUG se kompajlira ako se prilikom prevodjenja navede opcija -DDEBUG
+#ifdef DEBUG
+        printf("  %7.4f  %7.4f  %10.4e  %10.4e  %10.4e  %8d\n",
+                  x, y, 1.0, 1.0, 0.0, 0);
+#endif
         w_exact = 1.0;
         wt = 1.0;
-        steps_ave = 0;
-        printf ( "  %7.4f  %7.4f  %10.4e  %10.4e  %10.4e  %8d\n",
-          x, y, wt, w_exact, fabs ( w_exact - wt ), steps_ave );
         continue;
       }
-      n_inside = n_inside + 1;
-/*
-  Compute the exact solution at this point (x,y).
-*/
-      w_exact = exp ( pow ( x / a, 2 )
-                    + pow ( y / b, 2 ) - 1.0 );
-/*
-  Now try to estimate the solution at this point.
-*/
+
+      // tacka je unutar 2-D elipsoida
+      n_inside++;
+ 
+      // analitička vrednost funkcije gustine/potencijala u tački unutar elipsoida - referentna vrednost koju poredimo u odnosu na numericku - wt
+      w_exact = exp(pow(x / a, 2) + pow(y / b, 2) - 1.0);
       wt = 0.0;
-      steps = 0;
-/* 
-  Do N paths 
-*/
-      for ( k = 0; k < N; k++ )
+
+#ifdef DEBUG
+      int steps = 0;
+#endif
+
+      // pustamo N tacaka iz izabrane koordinate - visestruki pokusaji kako bi se dobila bolja aproksimacija
+      for (int trial = 0; trial < N; trial++)
       {
-        x1  = x;
-        x2  = y;
-/* 
-  W = exp(-int(s=0..t) v(X)ds) 
-*/
-        w = 1.0;  
-/*
-  CHK is < 1.0 while the point is inside.
-*/
+        double x1 = x;
+        double x2 = y;
+  
+        double w = 1.0;
         chk = 0.0;
-        while ( chk < 1.0 )
+
+        // kretanje cestice - dok se nalazi unutar elipsoida
+        while (chk < 1.0)
         {
-/*
-  Determine DX, DY.
-*/
-          ut = r8_uniform_01 ( &seed );
+          double ut = r8_uniform_01 ( &seed );
+
+          double us;
+          double dx;
+          double dy;
+
           if ( ut < 1.0 / 2.0 )
           {
             us = r8_uniform_01 ( &seed ) - 0.5;
             if ( us < 0.0)
             {
-              dx = - rth;
+              dx = - stepsz;
             } 
             else
             {
-              dx = rth;
+              dx = stepsz;
             }
           } 
           else
@@ -176,315 +122,99 @@ int main ( int arc, char **argv )
             dx = 0.0;
           }
 
-          ut = r8_uniform_01 ( &seed );
+          ut = r8_uniform_01(&seed);
           if ( ut < 1.0 / 2.0 )
           {
-            us = r8_uniform_01 ( &seed ) - 0.5;
-            if ( us < 0.0 )
+            us = r8_uniform_01(&seed) - 0.5;
+            if (us < 0.0)
             { 
-              dy = - rth;
+              dy = - stepsz;
             }
             else
             {
-              dy = rth;
+              dy = stepsz;
             }
           }
           else
           {
             dy = 0.0;
           }
-          vs = potential ( a, b, x1, x2 );
-/*
-  Move to the new point.
-*/
+
+          // potential before moving
+          double vs = potential(a, b, x1, x2);
+
+          // move
           x1 = x1 + dx;
           x2 = x2 + dy;
+        
+#ifdef DEBUG
+          ++steps;
+#endif
+          // potential after moving
+          double vh = potential(a, b, x1, x2);
 
-          steps = steps + 1;
- 
-          vh = potential ( a, b, x1, x2 );
-
-          we = ( 1.0 - h * vs ) * w;
-          w = w - 0.5 * h * ( vh * we + vs * w ); 
-
-          chk = pow ( x1 / a, 2 ) 
-              + pow ( x2 / b, 2 );
+          double we = (1.0 - h * vs) * w;           // Euler-ov korak
+          w = w - 0.5 * h * (vh * we + vs * w);     // trapezna aproksimacija
+  
+          chk = pow(x1 / a, 2) + pow(x2 / b, 2);
         }
         wt = wt + w;
       }
-/*
-  WT is the average of the sum of the different trials.
-*/
-      wt = wt / ( double ) ( N ); 
-      steps_ave = steps / ( double ) ( N );
-/*
-  Add error in WT to the running L2 error in the solution.
-*/
-      err = err + pow ( w_exact - wt, 2 );
+      // srednja vrenost tezine za N pokusaja
+      wt = wt / (double)(N);
 
-      printf ( "  %7.4f  %7.4f  %10.4e  %10.4e  %10.4e  %8d\n",
-        x, y, wt, w_exact, fabs ( w_exact - wt ), steps_ave );
+      // kvadrat razlike tacne i numericki dobijene vrednosti
+      err += pow(w_exact - wt, 2);
+
+#ifdef DEBUG
+      printf("  %7.4f  %7.4f  %10.4e  %10.4e  %10.4e  %8d\n",
+            x, y, wt, w_exact, fabs(w_exact - wt), steps / N);
+#endif
+
     }
   }
-/*
-  Compute the RMS error for all the points.
-*/
-  err = sqrt ( err / ( double ) ( n_inside ) );
+} // parallel
+  // root-mean-square (RMS) error
+  return sqrt(err / (double)(n_inside));
+}
 
-  printf ( "\n" );
-  printf ( "  RMS absolute error in solution = %e\n", err );
-/*
-  Terminate.
-*/
-  printf ( "\n" );
-  printf ( "FEYNMAN_KAC_2D:\n" );
-  printf ( "  Normal end of execution.\n" );
-  printf ( "\n" );
-  timestamp ( );
+
+double (*FUNCS[])(const double, const double, const double, const double, const int, const int, const int) = {feynman_1};
+
+int main ( int argc, char **argv )
+{
+  const double a = 2.0;
+  const double b = 1.0;
+  const double h = 0.001;
+  const int ni = 16;
+  const int nj = 11;
+
+  const double stepsz = sqrt(DIMENSIONS * h);
+
+  if (argc < 3)
+  {
+    printf("Invalid number of arguments passed.\n");
+    return 1;
+  }
+
+  // index of function
+  const int func = atoi(argv[1]);
+  
+  // numer of walks per point
+  const int N = atoi(argv[2]);
+
+  printf("TEST: func=%d, N=%d, num_threads=%ld\n", func, N, get_num_threads());
+  double wtime = omp_get_wtime();
+  double err = FUNCS[func](a, b, h, stepsz, ni, nj, N);
+  wtime = omp_get_wtime() - wtime;
+  printf("%d    %lf    %lf\n", N, err, wtime);
+  printf("TEST END\n");
 
   return 0;
 }
-/******************************************************************************/
 
-int i4_ceiling ( double x )
 
-/******************************************************************************/
-/*
-  Purpose:
 
-    I4_CEILING rounds an R8 up to the nearest I4.
-
-  Discussion:
-
-    The "ceiling" of X is the value of X rounded towards plus infinity.
-
-  Example:
-
-    X        I4_CEILING(X)
-
-   -1.1      -1
-   -1.0      -1
-   -0.9       0
-   -0.1       0
-    0.0       0
-    0.1       1
-    0.9       1
-    1.0       1
-    1.1       2
-    2.9       3
-    3.0       3
-    3.14159   4
-
-  Licensing:
-
-    This code is distributed under the MIT license.
-
-  Modified:
-
-    10 November 2011
-
-  Author:
-
-    John Burkardt
-
-  Parameters:
-
-    Input, double X, the number whose ceiling is desired.
-
-    Output, int I4_CEILING, the ceiling of X.
-*/
-{
-  int value;
-
-  value = ( int ) x;
-
-  if ( value < x )
-  {
-    value = value + 1;
-  }
-
-  return value;
-}
-/******************************************************************************/
-
-double potential ( double a, double b, double x, double y )
-
-/******************************************************************************/
-/*
-  Purpose:
-
-    POTENTIAL evaluates the potential function V(X,Y,Z).
-
-  Licensing:
-
-    This code is distributed under the MIT license. 
-
-  Modified:
-
-    19 February 2008
-
-  Author:
-
-    John Burkardt
-
-  Parameters:
-
-    Input, double A, B, the parameters that define the ellipse.
-
-    Input, double X, Y, the coordinates of the point.
-
-    Output, double POTENTIAL, the value of the potential function at (X,Y).
-*/
-{
-  double value;
-
-  value = 2.0 * ( pow ( x / a / a, 2 )
-                + pow ( y / b / b, 2 ) )
-              + 1.0 / a / a
-              + 1.0 / b / b;
-
-  return value;
-}
-/******************************************************************************/
-
-double r8_uniform_01 ( int *seed )
-
-/******************************************************************************/
-/*
-  Purpose:
-
-    R8_UNIFORM_01 returns a unit pseudorandom R8.
-
-  Discussion:
-
-    This routine implements the recursion
-
-      seed = 16807 * seed mod ( 2^31 - 1 )
-      r8_uniform_01 = seed / ( 2^31 - 1 )
-
-    The integer arithmetic never requires more than 32 bits,
-    including a sign bit.
-
-    If the initial seed is 12345, then the first three computations are
-
-      Input     Output      R8_UNIFORM_01
-      SEED      SEED
-
-         12345   207482415  0.096616
-     207482415  1790989824  0.833995
-    1790989824  2035175616  0.947702
-
-  Licensing:
-
-    This code is distributed under the MIT license. 
-
-  Modified:
-
-    11 August 2004
-
-  Author:
-
-    John Burkardt
-
-  Reference:
-
-    Paul Bratley, Bennett Fox, Linus Schrage,
-    A Guide to Simulation,
-    Springer Verlag, pages 201-202, 1983.
-
-    Pierre L'Ecuyer,
-    Random Number Generation,
-    in Handbook of Simulation
-    edited by Jerry Banks,
-    Wiley Interscience, page 95, 1998.
-
-    Bennett Fox,
-    Algorithm 647:
-    Implementation and Relative Efficiency of Quasirandom
-    Sequence Generators,
-    ACM Transactions on Mathematical Software,
-    Volume 12, Number 4, pages 362-376, 1986.
-
-    Peter Lewis, Allen Goodman, James Miller,
-    A Pseudo-Random Number Generator for the System/360,
-    IBM Systems Journal,
-    Volume 8, pages 136-143, 1969.
-
-  Parameters:
-
-    Input/output, int *SEED, the "seed" value.  Normally, this
-    value should not be 0.  On output, SEED has been updated.
-
-    Output, double R8_UNIFORM_01, a new pseudorandom variate, strictly between
-    0 and 1.
-*/
-{
-  int k;
-  double r;
-
-  k = *seed / 127773;
-
-  *seed = 16807 * ( *seed - k * 127773 ) - k * 2836;
-
-  if ( *seed < 0 )
-  {
-    *seed = *seed + 2147483647;
-  }
-/*
-  Although SEED can be represented exactly as a 32 bit integer,
-  it generally cannot be represented exactly as a 32 bit real number!
-*/
-  r = ( double ) ( *seed ) * 4.656612875E-10;
-
-  return r;
-}
-/******************************************************************************/
-
-void timestamp ( void )
-
-/******************************************************************************/
-/*
-  Purpose:
-
-    TIMESTAMP prints the current YMDHMS date as a time stamp.
-
-  Example:
-
-    31 May 2001 09:45:54 AM
-
-  Licensing:
-
-    This code is distributed under the MIT license. 
-
-  Modified:
-
-    24 September 2003
-
-  Author:
-
-    John Burkardt
-
-  Parameters:
-
-    None
-*/
-{
-# define TIME_SIZE 40
-
-  static char time_buffer[TIME_SIZE];
-  const struct tm *tm;
-  time_t now;
-
-  now = time ( NULL );
-  tm = localtime ( &now );
-
-  strftime ( time_buffer, TIME_SIZE, "%d %B %Y %I:%M:%S %p", tm );
-
-  printf ( "%s\n", time_buffer );
-
-  return;
-# undef TIME_SIZE
-}
 
 /******************************************************************************/
 /*
